@@ -12,7 +12,6 @@ package dlj.example;
  * and limitations under the License.
  */
 
-
 import ai.djl.inference.Predictor;
 import ai.djl.modality.cv.output.DetectedObjects;
 import org.slf4j.Logger;
@@ -30,34 +29,35 @@ import java.util.function.Supplier;
 @SpringBootApplication
 public class ConsoleApplication implements CommandLineRunner {
 
-    private static Logger LOG = LoggerFactory.getLogger(ConsoleApplication.class);
+	private static Logger LOG = LoggerFactory.getLogger(ConsoleApplication.class);
 
-    /**
-     * Note: @{@link Autowired} will fail on matching the generic type here.
-     * To wire with Autowired and generic types consider the following:
-     * <code>
-     *     @Autowired
-     *     Supplier<Predictor <?, ?>> autowiredProvider;
-     * </code>
-     *
-     * Then casting to the right type.
-     */
-    @Resource
-    private Supplier<Predictor<BufferedImage, DetectedObjects>> predictorProvider;
+	/**
+	 * Note: @{@link Autowired} will fail on matching the generic type here. To wire
+	 * with Autowired and generic types consider the following: <code>
+	 *     &#64;Autowired
+	 *     Supplier<Predictor <?, ?>> autowiredProvider;
+	 * </code>
+	 *
+	 * Then casting to the right type.
+	 */
+	@Resource
+	private Supplier<Predictor<BufferedImage, DetectedObjects>> predictorProvider;
 
-    public static void main(String[] args) {
-        SpringApplication.run(ConsoleApplication.class, args);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(ConsoleApplication.class, args);
+	}
 
-    @Override
-    public void run(String... args) throws Exception {
-        try (var predictor = predictorProvider.get()) {
-            var results = predictor.predict(ImageIO.read(this.getClass()
-//                    .getResourceAsStream("/puppy-in-white-and-red-polka.jpg")));
+	@Override
+	public void run(String... args) throws Exception {
+		try (var predictor = predictorProvider.get()) {
+			var results = predictor
+					.predict(ImageIO.read(this.getClass()
+//							.getResourceAsStream("/puppy-in-white-and-red-polka.jpg")));
             .getResourceAsStream("/cat.jpg")));
-            for(var result : results.items()) {
-                LOG.info("results: {}", result.toString());
-            }
-        }
-    }
+			
+			
+			results.items().stream().filter(r -> r.getProbability()> 0.8d).forEach(System.out::println);
+
+		}
+	}
 }
