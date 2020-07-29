@@ -24,6 +24,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.function.Supplier;
 
 @SpringBootApplication
@@ -49,15 +50,16 @@ public class ConsoleApplication implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-		try (var predictor = predictorProvider.get()) {
-			var results = predictor
-					.predict(ImageIO.read(this.getClass()
-//							.getResourceAsStream("/puppy-in-white-and-red-polka.jpg")));
-            .getResourceAsStream("/cat.jpg")));
-			
-			
-			results.items().stream().filter(r -> r.getProbability()> 0.8d).forEach(System.out::println);
+		try (Predictor<BufferedImage, DetectedObjects> predictor = predictorProvider.get()) {
+			DetectedObjects results = predictor.predict(loadImage("/puppy-in-white-and-red-polka.jpg"));
+			results.items().stream().filter(r -> r.getProbability() > 0.8d).forEach(System.out::println);
 
+			results = predictor.predict(loadImage("/cat.jpg"));
+			results.items().stream().filter(r -> r.getProbability() > 0.8d).forEach(System.out::println);
 		}
+	}
+
+	private BufferedImage loadImage(String name) throws IOException {
+		return ImageIO.read(this.getClass().getResourceAsStream(name));
 	}
 }
