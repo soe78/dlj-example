@@ -1,65 +1,75 @@
 package dlj.example;
-/*
- * Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
- * with the License. A copy of the License is located at
- *
- * http://aws.amazon.com/apache2.0/
- *
- * or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
- * OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
- * and limitations under the License.
- */
 
-import ai.djl.inference.Predictor;
-import ai.djl.modality.cv.output.DetectedObjects;
+
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.function.Supplier;
+
+import javax.annotation.Resource;
+import javax.imageio.ImageIO;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import javax.annotation.Resource;
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.function.Supplier;
+import ai.djl.Application;
+import ai.djl.inference.Predictor;
+import ai.djl.modality.cv.output.DetectedObjects;
+import ai.djl.repository.zoo.Criteria;
+import ai.djl.repository.zoo.ModelZoo;
+import ai.djl.repository.zoo.ZooModel;
+import ai.djl.translate.TranslateException;
 
 @SpringBootApplication
 public class ConsoleApplication implements CommandLineRunner {
 
 	private static Logger LOG = LoggerFactory.getLogger(ConsoleApplication.class);
 
-	/**
-	 * Note: @{@link Autowired} will fail on matching the generic type here. To wire
-	 * with Autowired and generic types consider the following: <code>
-	 *     &#64;Autowired
-	 *     Supplier<Predictor <?, ?>> autowiredProvider;
-	 * </code>
-	 *
-	 * Then casting to the right type.
-	 */
 	@Resource
 	private Supplier<Predictor<BufferedImage, DetectedObjects>> predictorProvider;
 
-	public static void main(String[] args) {
+	public static void main(final String[] args) {
 		SpringApplication.run(ConsoleApplication.class, args);
 	}
 
 	@Override
-	public void run(String... args) throws Exception {
-		try (Predictor<BufferedImage, DetectedObjects> predictor = predictorProvider.get()) {
-			DetectedObjects results = predictor.predict(loadImage("/puppy-in-white-and-red-polka.jpg"));
-			results.items().stream().filter(r -> r.getProbability() > 0.8d).forEach(System.out::println);
+	public void run(final String... args) throws Exception {
+		DetectedObjects results1 = predict1("/puppy-in-white-and-red-polka.jpg");
+		results1.items().stream().filter(r -> r.getProbability() > 0.1d).map(p -> p.toString()).forEach(LOG::info);
 
-			results = predictor.predict(loadImage("/cat.jpg"));
-			results.items().stream().filter(r -> r.getProbability() > 0.8d).forEach(System.out::println);
+
+		DetectedObjects results2 = predict2("/puppy-in-white-and-red-polka.jpg");
+		results2.items().stream().filter(r -> r.getProbability() > 0.1d).map(p -> p.toString()).forEach(LOG::info);
+	}
+
+	private DetectedObjects predict1(final String image) throws TranslateException, IOException {
+		try (Predictor<BufferedImage, DetectedObjects> predictor = predictorProvider.get()) {
+			DetectedObjects results = predictor.predict(loadImage(image));
+			return results;
 		}
 	}
 
-	private BufferedImage loadImage(String name) throws IOException {
+	private DetectedObjects predict2(final String image) throws Exception {
+		try (Predictor<BufferedImage, DetectedObjects> predictor = predictor()) {
+			DetectedObjects results = predictor.predict(loadImage(image));
+			return results;
+		}
+	}
+
+	private BufferedImage loadImage(final String name) throws IOException {
 		return ImageIO.read(this.getClass().getResourceAsStream(name));
+	}
+
+	private Predictor<BufferedImage, DetectedObjects> predictor() throws Exception {
+		Criteria<BufferedImage, DetectedObjects> criteria = Criteria.builder()
+				.optApplication(Application.CV.OBJECT_DETECTION).setTypes(BufferedImage.class, DetectedObjects.class)
+				.optFilter("size", "512").optFilter("backbone", "mobilenet1.0").build();
+
+		ZooModel<BufferedImage, DetectedObjects> model = ModelZoo.loadModel(criteria);
+		Predictor<BufferedImage, DetectedObjects> predictor = model.newPredictor();
+		return predictor;
+
 	}
 }
